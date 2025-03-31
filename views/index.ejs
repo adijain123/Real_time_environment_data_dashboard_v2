@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+  <style>
+    .fade-in {
+      animation: fadeIn 0.5s;
+    }
+    @keyframes fadeIn {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    /* Added responsive table styles */
+    @media (max-width: 768px) {
+      .responsive-table-card {
+        display: block;
+        margin-bottom: 1rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        padding: 1rem;
+      }
+      
+      .responsive-table-card-header {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #4b5563;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+      }
+      
+      .responsive-table-card-data {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+      }
+      
+      .responsive-table-card-item {
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .responsive-table-card-label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-bottom: 0.25rem;
+      }
+      
+      .responsive-table-card-value {
+        font-size: 0.875rem;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <nav class="bg-blue-600 text-white shadow-lg">
+    <div class="container mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center">
+      <h1 class="text-xl md:text-2xl font-bold text-center sm:text-left mb-2 sm:mb-0">Real-Time Environmental Monitoring Dashboard</h1>
+      <div class="flex items-center">
+        <span id="last-updated" class="text-sm opacity-75"></span>
+      </div>
+    </div>
+  </nav>
+  <div class="container mx-auto px-4 py-6">
+
+<% if (locals.error) { %>
+  <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+    <p><%= error %></p>
+  </div>
+<% } %>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+  <!-- Current Status Card -->
+  <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+    <h2 class="text-xl font-semibold mb-4 text-gray-800">Current Status</h2>
+    <div id="current-data" class="fade-in">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <% if (lastRecord) { %>
+          <div class="bg-blue-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">Location</p>
+            <p class="font-medium text-sm sm:text-base break-words"><%= lastRecord.Latitude || 'N/A' %>, <%= lastRecord.Longitude || 'N/A' %></p>
+          </div>
+          <div class="bg-blue-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">Altitude</p>
+            <p class="font-medium text-sm sm:text-base"><%= lastRecord.Altitude || 'N/A' %> m</p>
+          </div>
+          <div class="bg-blue-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">Date & Time</p>
+            <p class="font-medium text-sm sm:text-base"><%= lastRecord.Date || 'N/A' %>, <%= lastRecord.Time || 'N/A' %></p>
+          </div>
+          <div class="bg-blue-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">Temperature</p>
+            <p class="font-medium text-sm sm:text-base"><%= lastRecord.Temperature || 'N/A' %> °C</p>
+            <% if (previousRecord && previousRecord.Temperature) { %>
+              <% const tempDiff = parseFloat(lastRecord.Temperature) - parseFloat(previousRecord.Temperature); %>
+              <p class="text-xs <%= tempDiff > 0 ? 'text-red-500' : tempDiff < 0 ? 'text-green-500' : 'text-gray-500' %>">
+                <%= tempDiff > 0 ? '▲' : tempDiff < 0 ? '▼' : '–' %> <%= Math.abs(tempDiff).toFixed(1) %> °C
+              </p>
+            <% } %>
+          </div>
+        <% } else { %>
+          <p class="col-span-2 text-gray-500">No data available</p>
+        <% } %>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Air Quality Card -->
+  <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+    <h2 class="text-xl font-semibold mb-4 text-gray-800">Air Quality</h2>
+    <div id="air-quality" class="fade-in">
+      <% if (lastRecord) { %>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="bg-blue-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">PM2.5</p>
+            <p class="font-medium text-sm sm:text-base"><%= lastRecord['PM2.5'] || 'N/A' %> µg/m³</p>
+            <% if (previousRecord && previousRecord['PM2.5']) { %>
+              <% const pm25Diff = parseFloat(lastRecord['PM2.5']) - parseFloat(previousRecord['PM2.5']); %>
+              <p class="text-xs <%= pm25Diff > 0 ? 'text-red-500' : pm25Diff < 0 ? 'text-green-500' : 'text-gray-500' %>">
+                <%= pm25Diff > 0 ? '▲' : pm25Diff < 0 ? '▼' : '–' %> <%= Math.abs(pm25Diff).toFixed(1) %> µg/m³
+              </p>
+            <% } %>
+          </div>
+          <div class="bg-blue-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">PM10</p>
+            <p class="font-medium text-sm sm:text-base"><%= lastRecord.PM10 || 'N/A' %> µg/m³</p>
+            <% if (previousRecord && previousRecord.PM10) { %>
+              <% const pm10Diff = parseFloat(lastRecord.PM10) - parseFloat(previousRecord.PM10); %>
+              <p class="text-xs <%= pm10Diff > 0 ? 'text-red-500' : pm10Diff < 0 ? 'text-green-500' : 'text-gray-500' %>">
+                <%= pm10Diff > 0 ? '▲' : pm10Diff < 0 ? '▼' : '–' %> <%= Math.abs(pm10Diff).toFixed(1) %> µg/m³
+              </p>
+            <% } %>
+          </div>
+          <div class="bg-blue-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">Humidity</p>
+            <p class="font-medium text-sm sm:text-base"><%= lastRecord.Humidity || 'N/A' %> %</p>
+            <% if (previousRecord && previousRecord.Humidity) { %>
+              <% const humidityDiff = parseFloat(lastRecord.Humidity) - parseFloat(previousRecord.Humidity); %>
+              <p class="text-xs <%= humidityDiff > 0 ? 'text-blue-500' : humidityDiff < 0 ? 'text-amber-500' : 'text-gray-500' %>">
+                <%= humidityDiff > 0 ? '▲' : humidityDiff < 0 ? '▼' : '–' %> <%= Math.abs(humidityDiff).toFixed(1) %> %
+              </p>
+            <% } %>
+          </div>
+          <div class="bg-blue-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">Pressure</p>
+            <p class="font-medium text-sm sm:text-base"><%= lastRecord.Pressure || 'N/A' %> hPa</p>
+            <% if (previousRecord && previousRecord.Pressure) { %>
+              <% const pressureDiff = parseFloat(lastRecord.Pressure) - parseFloat(previousRecord.Pressure); %>
+              <p class="text-xs <%= pressureDiff > 0 ? 'text-blue-500' : pressureDiff < 0 ? 'text-amber-500' : 'text-gray-500' %>">
+                <%= pressureDiff > 0 ? '▲' : pressureDiff < 0 ? '▼' : '–' %> <%= Math.abs(pressureDiff).toFixed(1) %> hPa
+              </p>
+            <% } %>
+          </div>
+        </div>
+      <% } else { %>
+        <p class="text-gray-500">No data available</p>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
+    <h2 class="text-xl font-semibold text-gray-800">Data Visualization</h2>
+    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+      <select id="chart-parameter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2 w-full sm:w-auto">
+        <option value="PM2.5">PM2.5</option>
+        <option value="PM10">PM10</option>
+        <option value="Temperature">Temperature</option>
+        <option value="Pressure">Pressure</option>
+        <option value="Humidity">Humidity</option>
+      </select>
+      <select id="time-range" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2 w-full sm:w-auto">
+        <option value="10">Last 10 records</option>
+        <option value="20">Last 20 records</option>
+        <option value="50">Last 50 records</option>
+        <option value="all">All records</option>
+      </select>
+      <button id="refresh-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 w-full sm:w-auto">
+        Refresh
+      </button>
+    </div>
+  </div>
+  <div class="h-64 sm:h-80">
+    <canvas id="data-chart" class="w-full h-full"></canvas>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
+    <h2 class="text-xl font-semibold text-gray-800">All Data</h2>
+    <button id="toggle-table" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg text-sm w-full sm:w-auto">
+      Show All Records
+    </button>
+  </div>
+  
+  <!-- Desktop Table View -->
+  <div id="data-table-container" class="hidden">
+    <div class="overflow-x-auto hidden md:block">
+      <table class="min-w-full bg-white">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+            <th class="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+            <th class="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+            <th class="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PM2.5</th>
+            <th class="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PM10</th>
+            <th class="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Temp</th>
+            <th class="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pressure</th>
+            <th class="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Humidity</th>
+          </tr>
+        </thead>
+        <tbody id="data-table-body">
+          <% if (data && data.length > 0) { %>
+            <% data.slice().reverse().forEach(row => { %>
+              <tr class="hover:bg-gray-50">
+                <td class="py-2 px-4 border-b text-sm text-gray-900"><%= row.Date || 'N/A' %></td>
+                <td class="py-2 px-4 border-b text-sm text-gray-900"><%= row.Time || 'N/A' %></td>
+                <td class="py-2 px-4 border-b text-sm text-gray-900">
+                  <%= row.Latitude || 'N/A' %>, <%= row.Longitude || 'N/A' %>
+                </td>
+                <td class="py-2 px-4 border-b text-sm text-gray-900"><%= row['PM2.5'] || 'N/A' %></td>
+                <td class="py-2 px-4 border-b text-sm text-gray-900"><%= row.PM10 || 'N/A' %></td>
+                <td class="py-2 px-4 border-b text-sm text-gray-900"><%= row.Temperature || 'N/A' %></td>
+                <td class="py-2 px-4 border-b text-sm text-gray-900"><%= row.Pressure || 'N/A' %></td>
+                <td class="py-2 px-4 border-b text-sm text-gray-900"><%= row.Humidity || 'N/A' %></td>
+              </tr>
+            <% }); %>
+          <% } else { %>
+            <tr>
+              <td colspan="8" class="py-4 px-4 text-center text-gray-500">No data available</td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Mobile Card View for Table -->
+    <div class="md:hidden" id="mobile-data-container">
+      <% if (data && data.length > 0) { %>
+        <% data.slice().reverse().forEach(row => { %>
+          <div class="bg-white responsive-table-card mb-4">
+            <div class="responsive-table-card-header"><%= row.Date || 'N/A' %>, <%= row.Time || 'N/A' %></div>
+            <div class="responsive-table-card-data">
+              <div class="responsive-table-card-item">
+                <span class="responsive-table-card-label">Location</span>
+                <span class="responsive-table-card-value"><%= row.Latitude || 'N/A' %>, <%= row.Longitude || 'N/A' %></span>
+              </div>
+              <div class="responsive-table-card-item">
+                <span class="responsive-table-card-label">PM2.5</span>
+                <span class="responsive-table-card-value"><%= row['PM2.5'] || 'N/A' %> µg/m³</span>
+              </div>
+              <div class="responsive-table-card-item">
+                <span class="responsive-table-card-label">PM10</span>
+                <span class="responsive-table-card-value"><%= row.PM10 || 'N/A' %> µg/m³</span>
+              </div>
+              <div class="responsive-table-card-item">
+                <span class="responsive-table-card-label">Temperature</span>
+                <span class="responsive-table-card-value"><%= row.Temperature || 'N/A' %> °C</span>
+              </div>
+              <div class="responsive-table-card-item">
+                <span class="responsive-table-card-label">Humidity</span>
+                <span class="responsive-table-card-value"><%= row.Humidity || 'N/A' %> %</span>
+              </div>
+              <div class="responsive-table-card-item">
+                <span class="responsive-table-card-label">Pressure</span>
+                <span class="responsive-table-card-value"><%= row.Pressure || 'N/A' %> hPa</span>
+              </div>
+            </div>
+          </div>
+        <% }); %>
+      <% } else { %>
+        <p class="text-center text-gray-500 py-4">No data available</p>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+</div>
+<footer class="bg-gray-800 text-white py-4 mt-6">
+  <div class="container mx-auto px-4 text-center">
+    <p>© 2025 Environmental Monitoring Dashboard</p>
+  </div>
+</footer>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const toggleButton = document.getElementById('toggle-table');
+    const dataTableContainer = document.getElementById('data-table-container');
+    
+    // Update last updated time
+    const lastUpdatedEl = document.getElementById('last-updated');
+    lastUpdatedEl.textContent = 'Last updated: ' + new Date().toLocaleString();
+    
+    // Toggle data table
+    toggleButton.addEventListener('click', function() {
+      if (dataTableContainer.classList.contains('hidden')) {
+        dataTableContainer.classList.remove('hidden');
+        toggleButton.textContent = 'Hide Records';
+      } else {
+        dataTableContainer.classList.add('hidden');
+        toggleButton.textContent = 'Show All Records';
+      }
+    });
+    
+    // Chart setup
+    const ctx = document.getElementById('data-chart').getContext('2d');
+    let dataChart;
+    
+    function initChart() {
+      // Sample data initialization (replace with actual data from backend)
+      const data = <% if (data && data.length > 0) { %><%- JSON.stringify(data) %><% } else { %>[]<% } %>;
+      const chartParameter = document.getElementById('chart-parameter').value;
+      const timeRange = document.getElementById('time-range').value;
+      
+      let displayData = data;
+      if (timeRange !== 'all' && data.length > 0) {
+        displayData = data.slice(-parseInt(timeRange));
+      }
+      
+      const labels = displayData.map(item => `${item.Date} ${item.Time}`);
+      const values = displayData.map(item => item[chartParameter]);
+      
+      // Destroy existing chart if it exists
+      if (dataChart) {
+        dataChart.destroy();
+      }
+      
+      // Create new chart
+      dataChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: chartParameter,
+            data: values,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.1,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: false
+            },
+            x: {
+              ticks: {
+                maxRotation: 45,
+                minRotation: 45
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'top'
+            }
+          }
+        }
+      });
+    }
+    
+    // Initialize chart
+    initChart();
+    
+    // Event listeners for chart controls
+    document.getElementById('chart-parameter').addEventListener('change', initChart);
+    document.getElementById('time-range').addEventListener('change', initChart);
+    document.getElementById('refresh-btn').addEventListener('click', function() {
+      // In a real app, this would fetch new data from the server
+      lastUpdatedEl.textContent = 'Last updated: ' + new Date().toLocaleString();
+      initChart();
+    });
+    
+    // Handle window resize for chart
+    window.addEventListener('resize', function() {
+      if (dataChart) {
+        dataChart.resize();
+      }
+    });
+  });
+</script>
+<script src="dashboard.js"></script>
+</body>
+</html>
