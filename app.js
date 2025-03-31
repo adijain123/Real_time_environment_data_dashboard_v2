@@ -1,16 +1,3 @@
-// File structure:
-// - app.js (main Express application)
-// - /views
-//   - index.ejs (main dashboard)
-//   - partials/header.ejs
-//   - partials/footer.ejs
-// - /public
-//   - /css
-//     - styles.css
-//   - /js
-//     - dashboard.js
-
-// app.js
 const express = require('express');
 const path = require('path');
 const axios = require('axios');
@@ -18,7 +5,6 @@ const csv = require('csv-parser');
 const { Readable } = require('stream');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // Set EJS as templating engine
 app.set('view engine', 'ejs');
@@ -98,6 +84,4 @@ app.get('/api/recent', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+module.exports = app;
